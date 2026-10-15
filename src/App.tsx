@@ -1754,8 +1754,8 @@ const AuthScreen: React.FC<{
       });
       return;
     }
-    const normalizedPhone = trimmedPhone.replace(/[\\s()+-]/g, '');
-    if (!/^\\d{10,15}$/.test(normalizedPhone)) {
+    const normalizedPhone = trimmedPhone.replace(/[\s()+-]/g, '');
+    if (!/^\d{10,15}$/.test(normalizedPhone)) {
       setErrorInfo({ title: 'رقم واتساب غير صحيح', fix: 'اكتب رقمك مع مفتاح الدولة، مثال مصر: 2010xxxxxxx من غير علامة +.' });
       return;
     }
