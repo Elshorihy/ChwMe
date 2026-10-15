@@ -1668,7 +1668,7 @@ const ProjectDocsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 // ============================================================================
 // 8. AUTHENTICATION SCREEN (LOGIN, SIGN-UP, EMAIL CONFIRM, FORGOT PASSWORD)
 // ============================================================================
-type AuthViewMode = 'signin' | 'signup' | 'verify-email' | 'verify-whatsapp' | 'forgot-password' | 'update-password';
+type AuthViewMode = 'signin' | 'signup' | 'verify-email' | 'forgot-password' | 'update-password';
 
 const AuthScreen: React.FC<{
   initialMode?: AuthViewMode;
@@ -1679,9 +1679,6 @@ const AuthScreen: React.FC<{
 }> = ({ initialMode = 'signin', onEnterDemoMode, onOpenDocs, darkMode, onToggleDarkMode }) => {
   const [mode, setMode] = useState<AuthViewMode>(initialMode);
   const [displayName, setDisplayName] = useState('');
-  const [whatsappPhone, setWhatsappPhone] = useState('');
-  const [whatsappCode, setWhatsappCode] = useState('');
-  const [whatsappLink, setWhatsappLink] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -1745,18 +1742,12 @@ const AuthScreen: React.FC<{
 
     const trimmedName = displayName.trim();
     const trimmedEmail = email.trim();
-    const trimmedPhone = whatsappPhone.trim();
 
     if (!trimmedName) {
       setErrorInfo({
         title: 'الاسم مطلوب',
         fix: 'اكتب اسمك اللي هيظهر لأصحابك في المحادثات (مثلاً: أحمد طارق).',
       });
-      return;
-    }
-    const normalizedPhone = trimmedPhone.replace(/[\s()+-]/g, '');
-    if (!/^\d{10,15}$/.test(normalizedPhone)) {
-      setErrorInfo({ title: 'رقم واتساب غير صحيح', fix: 'اكتب رقمك مع مفتاح الدولة، مثال مصر: 2010xxxxxxx من غير علامة +.' });
       return;
     }
     if (password.length < 6) {
@@ -1769,21 +1760,12 @@ const AuthScreen: React.FC<{
 
     setLoading(true);
     try {
-      const randomValues = new Uint32Array(1);
-      window.crypto.getRandomValues(randomValues);
-      const generatedCode = String(randomValues[0] % 1000000).padStart(6, '0');
-      const waMessage = `طلب توثيق حساب ChwMe%0Aالاسم: ${encodeURIComponent(trimmedName)}%0Aالإيميل: ${encodeURIComponent(trimmedEmail)}%0Aرقم واتساب المسجل: ${encodeURIComponent(normalizedPhone)}%0Aكود التحقق: ${generatedCode}`;
       const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
           emailRedirectTo: window.location.origin,
-          data: {
-            display_name: trimmedName,
-            whatsapp_phone: normalizedPhone,
-            whatsapp_verification_code: generatedCode,
-            whatsapp_verification_status: 'pending_manual_review',
-          },
+          data: { display_name: trimmedName },
         },
       });
 
@@ -1792,12 +1774,12 @@ const AuthScreen: React.FC<{
         return;
       }
 
-      // WhatsApp is user-initiated. The owner checks the sender number + code manually,
-      // then confirms the account in Supabase Auth. No WhatsApp API/bot is assumed.
-      if (data.user) {
-        setWhatsappCode(generatedCode);
-        setWhatsappLink(`https://wa.me/201145035199?text=${waMessage}`);
-        setMode('verify-whatsapp');
+      if (data.user && !data.session) {
+        setMode('verify-email');
+        setSuccessBanner('حسابك اتعمل بنجاح. افتح رسالة التأكيد اللي بعتناها على إيميلك، ولو مش موجودة في الوارد راجع Spam.');
+      } else if (data.user && data.session) {
+        setMode('signin');
+        setSuccessBanner('تم إنشاء الحساب بنجاح. تقدر تسجّل دخولك دلوقتي.');
       }
     } catch (err: any) {
       setErrorInfo(translateAuthErrorAr(err?.message || 'Signup failed'));
@@ -1929,7 +1911,6 @@ const AuthScreen: React.FC<{
               {mode === 'signin' && `أهلاً بيك في ${APP_NAME}`}
               {mode === 'signup' && `انضم لمجتمع ${APP_NAME}`}
               {mode === 'verify-email' && 'أكد بريدك الإلكتروني'}
-              {mode === 'verify-whatsapp' && 'تأكيد الحساب عبر واتساب'}
               {mode === 'forgot-password' && 'استعادة كلمة المرور'}
               {mode === 'update-password' && 'تعيين كلمة مرور جديدة'}
             </h1>
@@ -1937,7 +1918,6 @@ const AuthScreen: React.FC<{
               {mode === 'signin' && APP_TAGLINE}
               {mode === 'signup' && 'اعمل حسابك في ثواني وابدأ الكلام مع أصحابك فوراً'}
               {mode === 'verify-email' && 'خطوة أخيرة عشان نضمن أمان حسابك'}
-              {mode === 'verify-whatsapp' && 'ابعت رسالة بنفسك من رقمك، وبعدها هنراجع الحساب يدويًا'}
               {mode === 'forgot-password' && 'هنبعتلك رابط سريع تفتح بيه حسابك من تاني'}
               {mode === 'update-password' && 'اختار كلمة مرور قوية وسهلة تفتكرها'}
             </p>
@@ -1988,41 +1968,6 @@ const AuthScreen: React.FC<{
               <p className="text-xs font-semibold text-teal-900 dark:text-teal-200 leading-relaxed">
                 {successBanner}
               </p>
-            </div>
-          )}
-
-          {/* VIEW 1: USER-INITIATED WHATSAPP VERIFICATION */}
-          {mode === 'verify-whatsapp' && (
-            <div className="text-center space-y-5">
-              <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-green-950/50 text-green-600 dark:text-green-400 flex items-center justify-center mx-auto">
-                <MessageSquarePlus className="w-8 h-8" />
-              </div>
-              <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                <p className="font-bold text-slate-900 dark:text-white">حسابك اتسجل وناقص مراجعة يدوية</p>
-                <p>اضغط الزر وابعت الرسالة من نفس رقم واتساب اللي سجلته. فتح واتساب مش بيبعت الرسالة لوحده؛ لازم تضغط إرسال بنفسك.</p>
-                <div className="rounded-2xl border border-dashed border-green-300 dark:border-green-800 bg-green-50/70 dark:bg-green-950/20 p-4 text-start space-y-2">
-                  <p className="text-xs text-slate-600 dark:text-slate-300">كود طلبك:</p>
-                  <p dir="ltr" className="text-2xl tracking-[0.3em] font-extrabold text-green-700 dark:text-green-300 text-center">{whatsappCode}</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">الكود للمراجعة اليدوية فقط. مش هنعتبر الحساب متوثق تلقائيًا بمجرد فتح واتساب.</p>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">بعد ما توصل الرسالة، مسؤول ChwMe هيطابق رقم المرسل والكود، ثم يؤكد الحساب من لوحة Supabase. مش محتاجين WhatsApp API مدفوع أو بوت، لكن المراجعة مش تلقائية.</p>
-              </div>
-              <a
-                href={whatsappLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full min-h-[48px] rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-colors"
-              >
-                <MessageSquarePlus className="w-5 h-5" />
-                فتح واتساب وإرسال كود التحقق
-              </a>
-              <button
-                type="button"
-                onClick={() => { setErrorInfo(null); setSuccessBanner(null); setMode('signin'); }}
-                className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                رجوع لتسجيل الدخول بعد تأكيد الحساب
-              </button>
             </div>
           )}
 
@@ -2098,31 +2043,6 @@ const AuthScreen: React.FC<{
                       className="w-full min-h-[46px] ps-10 pe-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
                     />
                   </div>
-                </div>
-              )}
-
-              {mode === 'signup' && (
-                <div>
-                  <label htmlFor="whatsapp-phone" className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 text-start">
-                    رقم واتساب اللي هتبعت منه
-                  </label>
-                  <div className="relative">
-                    <MessageSquarePlus className="w-4 h-4 text-slate-400 absolute top-1/2 -translate-y-1/2 start-3.5 pointer-events-none" />
-                    <input
-                      id="whatsapp-phone"
-                      type="tel"
-                      inputMode="tel"
-                      dir="ltr"
-                      required
-                      autoComplete="tel"
-                      maxLength={20}
-                      placeholder="2010xxxxxxx"
-                      value={whatsappPhone}
-                      onChange={(e) => setWhatsappPhone(e.target.value)}
-                      className="w-full min-h-[46px] ps-10 pe-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 text-start focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                    />
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 text-start">اكتب مفتاح الدولة من غير +، مثال مصر: 2010xxxxxxx.</p>
                 </div>
               )}
 
