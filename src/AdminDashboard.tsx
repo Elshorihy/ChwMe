@@ -21,8 +21,6 @@ const statusLabel: Record<string, string> = {
 export default function AdminDashboard() {
   const [session, setSession] = useState<Session | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
@@ -75,14 +73,18 @@ export default function AdminDashboard() {
     });
   }, [requests, filter, search]);
 
-  const handleLogin = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleGoogleLogin = () => {
     setError('');
     setNotice('');
     setLoading(true);
-    const { error: loginError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setLoading(false);
-    if (loginError) setError(loginError.message || 'فشل تسجيل الدخول');
+    // Use Supabase's hosted Google OAuth flow; the existing auth client restores
+    // the returned access token from the URL hash on /admin.
+    const redirectTo = `${window.location.origin}/admin`;
+    const authorizeUrl = new URL('https://fvyzjqrlrfubgpsxnrng.supabase.co/auth/v1/authorize');
+    authorizeUrl.searchParams.set('provider', 'google');
+    authorizeUrl.searchParams.set('redirect_to', redirectTo);
+    authorizeUrl.searchParams.set('apikey', 'sb_publishable_aBt1f7tEsT292yWT44oANg_6Oesbwyg');
+    window.location.assign(authorizeUrl.toString());
   };
 
   const handleReview = async (request: VerificationRequest, approve: boolean) => {
@@ -141,11 +143,13 @@ export default function AdminDashboard() {
             <div className="mb-5 flex justify-center"><div className="rounded-2xl bg-orange-500/15 p-4 text-orange-300"><ShieldCheck size={30}/></div></div>
             <h2 className="text-center text-xl font-extrabold">دخول الأدمن</h2>
             <p className="mb-6 mt-2 text-center text-sm leading-6 text-slate-400">سجّل دخول بحساب الأدمن المضاف في إعدادات Supabase. معرفة رابط الصفحة وحدها لا تمنح صلاحية الإدارة.</p>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <label className="block text-sm font-bold">الإيميل<input type="email" required dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-left outline-none focus:border-orange-400"/></label>
-              <label className="block text-sm font-bold">كلمة المرور<input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 outline-none focus:border-orange-400"/></label>
-              <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 font-extrabold hover:bg-orange-500 disabled:opacity-60"><LogIn size={18}/>{loading ? 'جاري الدخول...' : 'دخول لوحة الأدمن'}</button>
-            </form>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center text-sm text-slate-300" dir="ltr">sheenomatp@gmail.com</div>
+              <p className="text-center text-xs leading-5 text-slate-400">ادخل بنفس حساب Google. صلاحية الأدمن بتتحدد من قاعدة البيانات، مش بمجرد تسجيل الدخول.</p>
+              <button type="button" disabled={loading} onClick={handleGoogleLogin} className="flex w-full items-center justify-center gap-3 rounded-xl bg-orange-600 px-4 py-3 font-extrabold hover:bg-orange-500 disabled:opacity-60">
+                <LogIn size={18}/>{loading ? 'جاري التحويل إلى Google...' : 'المتابعة باستخدام Google'}
+              </button>
+            </div>
           </div>
         ) : (
           <main className="mt-7">
