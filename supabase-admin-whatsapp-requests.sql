@@ -1,6 +1,6 @@
 -- ChwMe: secure WhatsApp verification admin dashboard
 -- Run once in Supabase SQL Editor for project fvyzjqrlrfubgpsxnrng.
--- IMPORTANT: replace sheenomatp@gmail.com with the exact email of your admin account.
+-- Admin Google account allowed to review WhatsApp verification requests.
 
 create schema if not exists private;
 
@@ -13,7 +13,7 @@ revoke all on schema private from public, anon, authenticated;
 revoke all on private.admin_allowlist from public, anon, authenticated;
 
 insert into private.admin_allowlist (email)
-values (lower('admin-email@example.com'))
+values (lower('sheenomatp@gmail.com'))
 on conflict (email) do nothing;
 
 create or replace function public.admin_list_whatsapp_requests()
