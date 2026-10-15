@@ -1,6 +1,6 @@
 -- ChwMe: secure WhatsApp verification admin dashboard
 -- Run once in Supabase SQL Editor for project fvyzjqrlrfubgpsxnrng.
--- IMPORTANT: replace admin-email@example.com with the exact email of your admin account.
+-- IMPORTANT: replace sheenomatp@gmail.com with the exact email of your admin account.
 
 create schema if not exists private;
 
